@@ -162,7 +162,64 @@ function App() {
     return () => io.disconnect();
   }, [theme]); // theme change can re-render; re-run safely
 
-  // Active-link highlighting with throttled scroll listener + scroll progress + parallax
+  // 3D tilt and ripple interactions
+  useEffect(() => {
+    const prefersReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // 3D tilting based on pointer position
+    const tiltables = Array.from(document.querySelectorAll('.tiltable'));
+    const onMove = (e) => {
+      const el = e.currentTarget;
+      const rect = el.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = (e.clientY - rect.top) / rect.height;
+      const rx = (0.5 - y) * 6; // tilt X
+      const ry = (x - 0.5) * 8; // tilt Y
+      el.style.transform = prefersReduce
+        ? ''
+        : `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) translateZ(2px)`;
+    };
+    const onLeave = (e) => {
+      const el = e.currentTarget;
+      el.style.transform = '';
+    };
+    tiltables.forEach((el) => {
+      el.addEventListener('mousemove', onMove, { passive: true });
+      el.addEventListener('mouseleave', onLeave, { passive: true });
+      el.addEventListener('blur', onLeave, { passive: true });
+    });
+
+    // Ripple on click for elements with .ripple
+    const ripples = Array.from(document.querySelectorAll('.ripple'));
+    const onClickRipple = (e) => {
+      const el = e.currentTarget;
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const maxDim = Math.max(rect.width, rect.height);
+      el.style.setProperty('--ripple-x', `${x}px`);
+      el.style.setProperty('--ripple-y', `${y}px`);
+      el.style.setProperty('--ripple-scale', `${(maxDim / 10) * 1.8}`);
+      el.classList.remove('is-rippling');
+      // force reflow to restart animation
+      // eslint-disable-next-line no-unused-expressions
+      void el.offsetWidth;
+      el.classList.add('is-rippling');
+      window.setTimeout(() => el.classList.remove('is-rippling'), 650);
+    };
+    ripples.forEach((el) => el.addEventListener('click', onClickRipple));
+
+    return () => {
+      tiltables.forEach((el) => {
+        el.removeEventListener('mousemove', onMove);
+        el.removeEventListener('mouseleave', onLeave);
+        el.removeEventListener('blur', onLeave);
+      });
+      ripples.forEach((el) => el.removeEventListener('click', onClickRipple));
+    };
+  }, []);
+
+  // Active-link highlighting with throttled scroll listener + scroll progress + parallax + hero sparkles
   useEffect(() => {
     const sectionOrder = ['hero', 'about', 'skills', 'projects', 'resume', 'contact'];
     const getY = (key) => sections[key]?.current?.getBoundingClientRect().top ?? Infinity;
@@ -171,10 +228,34 @@ function App() {
     const prefersReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const heroEl = sections.hero?.current;
     let parallaxLayer = null;
+    let sparkleLayer = null;
     if (heroEl && !prefersReduce) {
       parallaxLayer = document.createElement('div');
       parallaxLayer.className = 'hero-parallax';
       heroEl.appendChild(parallaxLayer);
+
+      // subtle sparkles using DOM spans
+      sparkleLayer = document.createElement('div');
+      sparkleLayer.setAttribute('aria-hidden', 'true');
+      sparkleLayer.style.position = 'absolute';
+      sparkleLayer.style.inset = '0';
+      sparkleLayer.style.pointerEvents = 'none';
+      for (let i = 0; i < 8; i++) {
+        const dot = document.createElement('span');
+        dot.className = 'float-subtle';
+        dot.style.position = 'absolute';
+        dot.style.width = '6px';
+        dot.style.height = '6px';
+        dot.style.borderRadius = '50%';
+        dot.style.background = 'radial-gradient(circle, rgba(59,130,246,0.6), transparent 70%)';
+        dot.style.left = `${Math.random() * 90 + 5}%`;
+        dot.style.top = `${Math.random() * 35 + 5}%`;
+        dot.style.filter = 'blur(.2px)';
+        dot.style.opacity = '0.45';
+        dot.style.animationDelay = `${Math.random() * 6}s`;
+        sparkleLayer.appendChild(dot);
+      }
+      heroEl.appendChild(sparkleLayer);
     }
 
     // nav underline slider setup
@@ -188,7 +269,7 @@ function App() {
     }
 
     const setUnderlineToActive = () => {
-      if (!underline) return;
+      if (!underline || !nav) return;
       const activeLink = document.querySelector('.nav-link.active');
       if (activeLink) {
         const rect = activeLink.getBoundingClientRect();
@@ -255,6 +336,7 @@ function App() {
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
       if (parallaxLayer && heroEl) heroEl.removeChild(parallaxLayer);
+      if (sparkleLayer && heroEl) heroEl.removeChild(sparkleLayer);
       if (underline && nav) nav.removeChild(underline);
     };
   }, [active, sections]);
@@ -367,6 +449,7 @@ function Header({ onNav, onToggleTheme, theme, active, primary, accent }) {
               whiteSpace: 'nowrap',
             }}
             aria-label="Go to top"
+            className="sparkles"
           >
             Your Name
           </a>
@@ -424,7 +507,7 @@ function Header({ onNav, onToggleTheme, theme, active, primary, accent }) {
             ))}
             <li>
               <button
-                className="theme-toggle btn btn-outline"
+                className="theme-toggle btn btn-outline ripple"
                 onClick={onToggleTheme}
                 aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
                 style={{
@@ -515,7 +598,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
               document.getElementById('projects')?.scrollIntoView({ behavior: 'smooth' });
             }}
             style={buttonStyle(primary)}
-            className="btn btn-gradient"
+            className="btn btn-gradient ripple"
           >
             View Projects
           </a>
@@ -526,7 +609,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
               document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
             }}
             style={buttonOutlineStyle(accent)}
-            className="btn btn-outline"
+            className="btn btn-outline ripple"
           >
             Contact Me
           </a>
@@ -588,7 +671,7 @@ function Skills({ refProp, primary, accent, secondaryText }) {
           {skills.map((s, idx) => (
             <li
               key={s}
-              className="card icon-hover"
+              className="card icon-hover tiltable glow-border depth-soft"
               style={{
                 border: '1px solid var(--border-color)',
                 borderRadius: 10,
@@ -645,7 +728,7 @@ function Projects({ refProp, data, primary, accent, secondaryText }) {
           {data.map((p, idx) => (
             <article
               key={p.id}
-              className="card"
+              className="card tiltable glow-border depth-soft"
               style={{
                 border: '1px solid var(--border-color)',
                 borderRadius: 12,
@@ -654,6 +737,7 @@ function Projects({ refProp, data, primary, accent, secondaryText }) {
               }}
               data-delay={100 + idx * 60}
             >
+              <div className="skeleton shimmer" style={{ width: '100%', height: 140, borderRadius: 10, marginBottom: 12 }} aria-hidden />
               <h3 style={{ margin: '0 0 8px', color: 'var(--text-primary)' }}>
                 {p.title}
               </h3>
@@ -676,7 +760,7 @@ function Projects({ refProp, data, primary, accent, secondaryText }) {
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {p.demo && (
-                  <a href={p.demo} target="_blank" rel="noreferrer" style={buttonStyle(primary)} className="btn btn-gradient">
+                  <a href={p.demo} target="_blank" rel="noreferrer" style={buttonStyle(primary)} className="btn btn-gradient ripple">
                     Live Demo
                   </a>
                 )}
@@ -686,7 +770,7 @@ function Projects({ refProp, data, primary, accent, secondaryText }) {
                     target="_blank"
                     rel="noreferrer"
                     style={buttonOutlineStyle(accent)}
-                    className="btn btn-outline"
+                    className="btn btn-outline ripple"
                   >
                     Source
                   </a>
@@ -711,7 +795,7 @@ function Resume({ refProp, primary, accent, secondaryText }) {
           Download a copy of my resume for details on experience and education.
         </p>
         <div className="reveal" data-delay="160" style={{ marginTop: 14 }}>
-          <a href="/assets/resume.pdf" download style={buttonStyle(primary)} className="btn btn-gradient">
+          <a href="/assets/resume.pdf" download style={buttonStyle(primary)} className="btn btn-gradient ripple">
             Download Resume
           </a>
           <a
@@ -719,7 +803,7 @@ function Resume({ refProp, primary, accent, secondaryText }) {
             target="_blank"
             rel="noreferrer"
             style={{ ...buttonOutlineStyle(accent), marginLeft: 10 }}
-            className="btn btn-outline"
+            className="btn btn-outline ripple"
           >
             View in Browser
           </a>
@@ -782,6 +866,7 @@ function Contact({
               required
               placeholder="Your name"
               style={{ ...fieldStyle, marginTop: 6 }}
+              className="glow-border"
             />
           </label>
 
@@ -795,6 +880,7 @@ function Contact({
               required
               placeholder="you@example.com"
               style={{ ...fieldStyle, marginTop: 6 }}
+              className="glow-border"
             />
           </label>
 
@@ -808,6 +894,7 @@ function Contact({
               placeholder="How can I help?"
               rows={6}
               style={{ ...fieldStyle, marginTop: 6, resize: 'vertical' }}
+              className="glow-border"
             />
           </label>
 
@@ -815,7 +902,7 @@ function Contact({
             <button
               type="submit"
               disabled={state.status === 'sending'}
-              className="btn btn-gradient"
+              className="btn btn-gradient ripple"
               style={{
                 ...buttonStyle(primary),
                 opacity: state.status === 'sending' ? 0.7 : 1,
@@ -871,7 +958,7 @@ function Footer({ primary, accent }) {
             target="_blank"
             rel="noreferrer"
             style={linkHover(primary)}
-            className="btn btn-outline"
+            className="btn btn-outline ripple"
           >
             GitHub
           </a>
@@ -880,14 +967,14 @@ function Footer({ primary, accent }) {
             target="_blank"
             rel="noreferrer"
             style={linkHover(accent)}
-            className="btn btn-outline"
+            className="btn btn-outline ripple"
           >
             LinkedIn
           </a>
           <a
             href="mailto:you@example.com"
             style={linkHover(primary)}
-            className="btn btn-outline"
+            className="btn btn-outline ripple"
           >
             Email
           </a>
