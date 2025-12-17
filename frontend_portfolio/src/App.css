@@ -7,6 +7,8 @@
   --border-color: #e5e7eb;
   --button-bg: #3b82f6;
   --button-text: #ffffff;
+  --accent-1: #3b82f6;
+  --accent-2: #06b6d4;
 }
 
 [data-theme="dark"] {
@@ -19,6 +21,7 @@
   --button-text: #e5e7eb;
 }
 
+/* App shell */
 html, body, #root {
   min-height: 100%;
 }
@@ -36,14 +39,10 @@ a:focus, button:focus, input:focus, textarea:focus {
   outline-offset: 2px;
 }
 
-/* Utility container */
-.container {
-  width: 100%;
-}
-
-/* Reset link transitions */
+/* Links baseline */
 a {
-  transition: color .15s ease, border-color .15s ease, background-color .15s ease, opacity .15s ease;
+  transition: color .2s ease, border-color .2s ease, background-color .2s ease, opacity .2s ease, transform .2s ease;
+  text-decoration: none;
 }
 
 /* Theme toggle baseline to allow inline overrides */
@@ -52,14 +51,111 @@ a {
   color: var(--button-text);
 }
 
-/* Simple keyframes for subtle animations if needed */
-@keyframes floatIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+/* GPU-friendly reveal animations via IntersectionObserver */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity .5s ease, transform .5s ease;
+  will-change: opacity, transform;
 }
 
-.animate-in {
-  animation: floatIn .35s ease both;
+.reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-left {
+  opacity: 0;
+  transform: translateX(-16px);
+  transition: opacity .5s ease, transform .5s ease;
+  will-change: opacity, transform;
+}
+.reveal-left.revealed {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.reveal-right {
+  opacity: 0;
+  transform: translateX(16px);
+  transition: opacity .5s ease, transform .5s ease;
+  will-change: opacity, transform;
+}
+.reveal-right.revealed {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Buttons and cards hover effects */
+.btn {
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  will-change: transform, opacity, background-color, border-color;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.card {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  transition: box-shadow .25s ease, transform .2s ease, border-color .2s ease;
+  will-change: transform, box-shadow;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+  border-color: rgba(59,130,246,0.35);
+}
+
+/* Hero animated gradient accent */
+.hero-accent {
+  position: relative;
+  background: radial-gradient(1200px 300px at 20% -10%, rgba(59,130,246,0.18), transparent 60%),
+              radial-gradient(1200px 300px at 80% -10%, rgba(6,182,212,0.18), transparent 60%);
+  overflow: hidden;
+}
+.hero-accent::after {
+  content: "";
+  position: absolute;
+  inset: -40% -10%;
+  background: conic-gradient(from 180deg at 50% 50%, rgba(59,130,246,0.10), rgba(6,182,212,0.10), rgba(59,130,246,0.10));
+  filter: blur(60px);
+  animation: spin-accent 18s linear infinite;
+  pointer-events: none;
+}
+@keyframes spin-accent {
+  to { transform: rotate(360deg); }
+}
+
+/* Active nav link */
+.nav-link {
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.nav-link.active {
+  color: var(--accent-1) !important;
+  background: rgba(59,130,246,0.08);
+}
+
+/* Reduced motion disables spinning accent and transforms */
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .reveal-left, .reveal-right {
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .card:hover, .btn:hover {
+    transform: none !important;
+  }
+  .hero-accent::after {
+    animation: none !important;
+  }
 }
 
 /* Responsive tweaks */

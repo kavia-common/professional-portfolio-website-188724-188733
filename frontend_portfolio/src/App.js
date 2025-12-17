@@ -22,6 +22,9 @@ function App() {
     contact: useRef(null),
   };
 
+  // Track active section for nav highlight
+  const [active, setActive] = useState('hero');
+
   // Apply theme to document
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -130,12 +133,74 @@ function App() {
   const accent = '#06b6d4'; // cyan-500
   const secondaryText = '#64748b'; // slate-500
 
+  // IntersectionObserver for reveal animations
+  useEffect(() => {
+    const prefersReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduce) return;
+
+    const revealables = document.querySelectorAll('.reveal, .reveal-left, .reveal-right');
+    revealables.forEach((el) => el.classList.remove('revealed')); // reset
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('revealed');
+            // Optional: unobserve once revealed
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { rootMargin: '0px 0px -10% 0px', threshold: 0.1 }
+    );
+
+    revealables.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [theme]); // theme change can re-render; re-run safely
+
+  // Active-link highlighting with throttled scroll listener
+  useEffect(() => {
+    const sectionOrder = ['hero', 'about', 'skills', 'projects', 'resume', 'contact'];
+    const getY = (key) => sections[key]?.current?.getBoundingClientRect().top ?? Infinity;
+
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        // Determine the section closest to top but >= 0 - 120px offset
+        const offset = 120;
+        const tops = sectionOrder.map((k) => [k, getY(k) - offset]);
+        const visible = tops
+          .filter(([, y]) => y <= 80)
+          .sort((a, b) => Math.abs(a[1]) - Math.abs(b[1]));
+        if (visible.length) {
+          const [k] = visible[0];
+          if (k && k !== active) setActive(k);
+        } else {
+          // fallback to the first section if none crossed
+          const ahead = tops.filter(([, y]) => y > 80).sort((a, b) => a[1] - b[1]);
+          if (ahead.length) {
+            const [k] = ahead[0];
+            if (k && k !== active) setActive(k);
+          }
+        }
+        ticking = false;
+      });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll(); // initialize
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [active, sections]);
+
   return (
     <div className="App" style={{ background: 'var(--bg-primary)' }}>
       <Header
         onNav={scrollTo}
         onToggleTheme={toggleTheme}
         theme={theme}
+        active={active}
         primary={primary}
         accent={accent}
       />
@@ -188,7 +253,7 @@ function App() {
 }
 
 // PUBLIC_INTERFACE
-function Header({ onNav, onToggleTheme, theme, primary, accent }) {
+function Header({ onNav, onToggleTheme, theme, active, primary, accent }) {
   /** Header with site title and smooth-scroll nav */
   return (
     <header
@@ -205,12 +270,12 @@ function Header({ onNav, onToggleTheme, theme, primary, accent }) {
       <div
         className="container"
         style={{
-          maxWidth: 1100,
           margin: '0 auto',
           padding: '14px 20px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          width: '100%',
         }}
       >
         <div
@@ -218,6 +283,7 @@ function Header({ onNav, onToggleTheme, theme, primary, accent }) {
             display: 'flex',
             alignItems: 'baseline',
             gap: 8,
+            minWidth: 0,
           }}
         >
           <a
@@ -231,6 +297,7 @@ function Header({ onNav, onToggleTheme, theme, primary, accent }) {
               color: 'var(--text-primary)',
               textDecoration: 'none',
               letterSpacing: '.2px',
+              whiteSpace: 'nowrap',
             }}
             aria-label="Go to top"
           >
@@ -257,6 +324,7 @@ function Header({ onNav, onToggleTheme, theme, primary, accent }) {
               margin: 0,
               padding: 0,
               alignItems: 'center',
+              flexWrap: 'wrap',
             }}
           >
             {[
@@ -268,20 +336,19 @@ function Header({ onNav, onToggleTheme, theme, primary, accent }) {
             ].map(([label, key]) => (
               <li key={key}>
                 <a
+                  className={`nav-link ${active === key ? 'active' : ''}`}
                   href={`#${key}`}
                   onClick={(e) => {
                     e.preventDefault();
                     onNav(key);
                   }}
                   style={{
-                    color: 'var(--text-primary)',
-                    textDecoration: 'none',
-                    padding: '6px 8px',
-                    borderRadius: 6,
+                    color: active === key ? 'var(--accent-1)' : 'var(--text-primary)',
                   }}
                   onMouseOver={(e) => (e.currentTarget.style.color = primary)}
                   onMouseOut={(e) =>
-                    (e.currentTarget.style.color = 'var(--text-primary)')
+                    (e.currentTarget.style.color =
+                      active === key ? 'var(--accent-1)' : 'var(--text-primary)')
                   }
                 >
                   {label}
@@ -290,7 +357,7 @@ function Header({ onNav, onToggleTheme, theme, primary, accent }) {
             ))}
             <li>
               <button
-                className="theme-toggle"
+                className="theme-toggle btn"
                 onClick={onToggleTheme}
                 aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
                 style={{
@@ -329,17 +396,14 @@ function Hero({ refProp, primary, accent, secondaryText }) {
     <section
       id="hero"
       ref={refProp}
+      className="hero-accent"
       style={{
         padding: '80px 20px',
-        background:
-          'linear-gradient(180deg, rgba(59,130,246,0.08), rgba(6,182,212,0.06))',
       }}
     >
-      <div
-        className="container"
-        style={{ maxWidth: 1100, margin: '0 auto', textAlign: 'left' }}
-      >
+      <div className="container">
         <p
+          className="reveal"
           style={{
             color: secondaryText,
             fontWeight: 600,
@@ -350,6 +414,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
           Hello, I’m
         </p>
         <h1
+          className="reveal"
           style={{
             margin: '0 0 10px',
             fontSize: 42,
@@ -360,6 +425,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
           Your Name
         </h1>
         <p
+          className="reveal"
           style={{
             color: secondaryText,
             maxWidth: 720,
@@ -372,7 +438,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
           experience.
         </p>
 
-        <div style={{ display: 'flex', gap: 12, marginTop: 24, flexWrap: 'wrap' }}>
+        <div className="reveal" style={{ display: 'flex', gap: 12, marginTop: 24, flexWrap: 'wrap' }}>
           <a
             href="#projects"
             onClick={(e) => {
@@ -380,6 +446,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
               document.getElementById('projects')?.scrollIntoView({ behavior: 'smooth' });
             }}
             style={buttonStyle(primary)}
+            className="btn"
           >
             View Projects
           </a>
@@ -390,6 +457,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
               document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
             }}
             style={buttonOutlineStyle(accent)}
+            className="btn"
           >
             Contact Me
           </a>
@@ -404,9 +472,9 @@ function About({ refProp, secondaryText }) {
   /** About section with placeholder content */
   return (
     <section id="about" ref={refProp} style={sectionStyle()}>
-      <div className="container" style={containerInner()}>
-        <h2 style={sectionTitleStyle()}>About Me</h2>
-        <p style={{ color: secondaryText, lineHeight: 1.8 }}>
+      <div className="container">
+        <h2 className="reveal" style={sectionTitleStyle()}>About Me</h2>
+        <p className="reveal" style={{ color: secondaryText, lineHeight: 1.8 }}>
           I am a passionate software engineer with experience across the stack —
           from crafting responsive interfaces to building scalable backend
           systems. I love clean architecture, resilient systems, and thoughtful
@@ -434,9 +502,10 @@ function Skills({ refProp, primary, accent, secondaryText }) {
   ];
   return (
     <section id="skills" ref={refProp} style={sectionStyle()}>
-      <div className="container" style={containerInner()}>
-        <h2 style={sectionTitleStyle()}>Skills</h2>
+      <div className="container">
+        <h2 className="reveal" style={sectionTitleStyle()}>Skills</h2>
         <ul
+          className="reveal"
           style={{
             listStyle: 'none',
             display: 'grid',
@@ -449,6 +518,7 @@ function Skills({ refProp, primary, accent, secondaryText }) {
           {skills.map((s) => (
             <li
               key={s}
+              className="card"
               style={{
                 border: '1px solid var(--border-color)',
                 borderRadius: 10,
@@ -472,7 +542,7 @@ function Skills({ refProp, primary, accent, secondaryText }) {
             </li>
           ))}
         </ul>
-        <p style={{ color: secondaryText, marginTop: 14, fontSize: 14 }}>
+        <p className="reveal" style={{ color: secondaryText, marginTop: 14, fontSize: 14 }}>
           Always learning and adapting to new technologies and best practices.
         </p>
       </div>
@@ -485,12 +555,13 @@ function Projects({ refProp, data, primary, accent, secondaryText }) {
   /** Projects grid driven by JSON data file */
   return (
     <section id="projects" ref={refProp} style={sectionStyle()}>
-      <div className="container" style={containerInner()}>
-        <h2 style={sectionTitleStyle()}>Projects</h2>
-        <p style={{ color: secondaryText, marginTop: 0 }}>
+      <div className="container">
+        <h2 className="reveal" style={sectionTitleStyle()}>Projects</h2>
+        <p className="reveal" style={{ color: secondaryText, marginTop: 0 }}>
           A selection of work that showcases problem solving and product thinking.
         </p>
         <div
+          className="reveal"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
@@ -501,6 +572,7 @@ function Projects({ refProp, data, primary, accent, secondaryText }) {
           {data.map((p) => (
             <article
               key={p.id}
+              className="card"
               style={{
                 border: '1px solid var(--border-color)',
                 borderRadius: 12,
@@ -530,7 +602,7 @@ function Projects({ refProp, data, primary, accent, secondaryText }) {
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {p.demo && (
-                  <a href={p.demo} target="_blank" rel="noreferrer" style={buttonStyle(primary)}>
+                  <a href={p.demo} target="_blank" rel="noreferrer" style={buttonStyle(primary)} className="btn">
                     Live Demo
                   </a>
                 )}
@@ -540,6 +612,7 @@ function Projects({ refProp, data, primary, accent, secondaryText }) {
                     target="_blank"
                     rel="noreferrer"
                     style={buttonOutlineStyle(accent)}
+                    className="btn"
                   >
                     Source
                   </a>
@@ -558,13 +631,13 @@ function Resume({ refProp, primary, accent, secondaryText }) {
   /** Resume section with downloadable file in public/ */
   return (
     <section id="resume" ref={refProp} style={sectionStyle()}>
-      <div className="container" style={containerInner()}>
-        <h2 style={sectionTitleStyle()}>Resume</h2>
-        <p style={{ color: secondaryText }}>
+      <div className="container">
+        <h2 className="reveal" style={sectionTitleStyle()}>Resume</h2>
+        <p className="reveal" style={{ color: secondaryText }}>
           Download a copy of my resume for details on experience and education.
         </p>
-        <div style={{ marginTop: 14 }}>
-          <a href="/assets/resume.pdf" download style={buttonStyle(primary)}>
+        <div className="reveal" style={{ marginTop: 14 }}>
+          <a href="/assets/resume.pdf" download style={buttonStyle(primary)} className="btn">
             Download Resume
           </a>
           <a
@@ -572,6 +645,7 @@ function Resume({ refProp, primary, accent, secondaryText }) {
             target="_blank"
             rel="noreferrer"
             style={{ ...buttonOutlineStyle(accent), marginLeft: 10 }}
+            className="btn"
           >
             View in Browser
           </a>
@@ -605,15 +679,16 @@ function Contact({
 
   return (
     <section id="contact" ref={refProp} style={sectionStyle()}>
-      <div className="container" style={containerInner()}>
-        <h2 style={sectionTitleStyle()}>Contact</h2>
-        <p style={{ color: secondaryText }}>
+      <div className="container">
+        <h2 className="reveal" style={sectionTitleStyle()}>Contact</h2>
+        <p className="reveal" style={{ color: secondaryText }}>
           {emailEnabled
             ? 'Send me a message and I will get back to you shortly.'
             : 'Email sending is not configured. Submit will simulate success.'}
         </p>
         <form
           onSubmit={onSubmit}
+          className="reveal"
           style={{
             marginTop: 16,
             display: 'grid',
@@ -665,6 +740,7 @@ function Contact({
             <button
               type="submit"
               disabled={state.status === 'sending'}
+              className="btn"
               style={{
                 ...buttonStyle(primary),
                 opacity: state.status === 'sending' ? 0.7 : 1,
@@ -703,13 +779,12 @@ function Footer({ primary, accent }) {
       <div
         className="container"
         style={{
-          maxWidth: 1100,
-          margin: '0 auto',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 14,
           flexWrap: 'wrap',
+          width: '100%',
         }}
       >
         <span style={{ color: 'var(--text-primary)' }}>
@@ -721,6 +796,7 @@ function Footer({ primary, accent }) {
             target="_blank"
             rel="noreferrer"
             style={linkHover(primary)}
+            className="btn"
           >
             GitHub
           </a>
@@ -729,12 +805,14 @@ function Footer({ primary, accent }) {
             target="_blank"
             rel="noreferrer"
             style={linkHover(accent)}
+            className="btn"
           >
             LinkedIn
           </a>
           <a
             href="mailto:you@example.com"
             style={linkHover(primary)}
+            className="btn"
           >
             Email
           </a>
@@ -842,11 +920,6 @@ function linkHover(color) {
     transition: 'all .15s ease',
     outline: 'none',
     boxShadow: 'none',
-    ...(color
-      ? {
-          ['onMouseOver']: null,
-        }
-      : {}),
   };
 }
 
