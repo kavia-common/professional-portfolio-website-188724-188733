@@ -14,6 +14,7 @@ html, body {
   box-sizing: border-box; /* contain paddings within widths */
 }
 
+/* Baseline typography scale and rhythm */
 body {
   margin: 0;
   font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -24,7 +25,15 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   overflow-y: overlay; /* nicer scrollbars where supported */
+  line-height: 1.6;
+  font-size: 16px;
 }
+
+h1 { font-size: clamp(2rem, 3vw + 1rem, 3rem); line-height: 1.15; margin: 0 0 .5rem; }
+h2 { font-size: clamp(1.5rem, 1.2vw + 1rem, 2rem); line-height: 1.25; margin: 0 0 .75rem; }
+h3 { font-size: clamp(1.125rem, .8vw + .9rem, 1.5rem); line-height: 1.3; margin: 0 0 .5rem; }
+p, li { font-size: 1rem; line-height: 1.75; }
+small { font-size: .875rem; color: var(--text-secondary); }
 
 /* Smooth in-page anchor scroll */
 html {
@@ -39,6 +48,27 @@ html {
   margin-right: auto;
   padding-left: 20px;
   padding-right: 20px;
+}
+
+/* Section separators & spacing rhythm */
+section {
+  position: relative;
+}
+section + section {
+  border-top: 1px solid var(--border-color);
+  background-image: linear-gradient(to bottom, rgba(59,130,246,0.06), transparent 35%);
+  background-size: 100% 18px;
+  background-repeat: no-repeat;
+}
+
+/* Glass-like surfaces guarded by @supports */
+@supports ((-webkit-backdrop-filter: none) or (backdrop-filter: none)) {
+  .glass {
+    background: color-mix(in srgb, var(--bg-primary) 70%, transparent);
+    -webkit-backdrop-filter: saturate(160%) blur(10px);
+    backdrop-filter: saturate(160%) blur(10px);
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
 }
 
 /* Typography */
@@ -57,8 +87,16 @@ p {
 
 /* Link/button/card hover transitions - GPU friendly */
 a, button {
-  transition: color .2s ease, background-color .2s ease, border-color .2s ease, opacity .2s ease, transform .2s ease;
+  transition: color .2s ease, background-color .2s ease, border-color .2s ease, opacity .2s ease, transform .2s ease, box-shadow .2s ease;
   will-change: transform, opacity;
+}
+
+/* Micro-interactions for links/icons */
+a:hover, a:focus-visible {
+  transform: translateY(-1px);
+}
+.icon-hover:hover {
+  transform: translateY(-1px) scale(1.02) rotate(-.5deg);
 }
 
 /* Scroll snap for large screens; disabled on small for better UX */
@@ -82,5 +120,8 @@ a, button {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+  a:hover, a:focus-visible, .icon-hover:hover {
+    transform: none !important;
   }
 }

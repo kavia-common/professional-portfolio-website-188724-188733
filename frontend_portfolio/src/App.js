@@ -133,7 +133,7 @@ function App() {
   const accent = '#06b6d4'; // cyan-500
   const secondaryText = '#64748b'; // slate-500
 
-  // IntersectionObserver for reveal animations
+  // IntersectionObserver for reveal animations with support for stagger via [data-delay]
   useEffect(() => {
     const prefersReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReduce) return;
@@ -145,8 +145,12 @@ function App() {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.classList.add('revealed');
-            // Optional: unobserve once revealed
+            const d = entry.target.getAttribute('data-delay');
+            if (d) {
+              setTimeout(() => entry.target.classList.add('revealed'), Number(d));
+            } else {
+              entry.target.classList.add('revealed');
+            }
             io.unobserve(entry.target);
           }
         });
@@ -158,17 +162,57 @@ function App() {
     return () => io.disconnect();
   }, [theme]); // theme change can re-render; re-run safely
 
-  // Active-link highlighting with throttled scroll listener
+  // Active-link highlighting with throttled scroll listener + scroll progress + parallax
   useEffect(() => {
     const sectionOrder = ['hero', 'about', 'skills', 'projects', 'resume', 'contact'];
     const getY = (key) => sections[key]?.current?.getBoundingClientRect().top ?? Infinity;
+    const progressEl = ensureProgressBar();
+
+    const prefersReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const heroEl = sections.hero?.current;
+    let parallaxLayer = null;
+    if (heroEl && !prefersReduce) {
+      parallaxLayer = document.createElement('div');
+      parallaxLayer.className = 'hero-parallax';
+      heroEl.appendChild(parallaxLayer);
+    }
+
+    // nav underline slider setup
+    const nav = document.querySelector('nav ul');
+    let underline;
+    if (nav) {
+      underline = document.createElement('div');
+      underline.className = 'nav-underline';
+      nav.style.position = 'relative';
+      nav.appendChild(underline);
+    }
+
+    const setUnderlineToActive = () => {
+      if (!underline) return;
+      const activeLink = document.querySelector('.nav-link.active');
+      if (activeLink) {
+        const rect = activeLink.getBoundingClientRect();
+        const parentRect = nav.getBoundingClientRect();
+        underline.style.width = rect.width + 'px';
+        underline.style.left = rect.left - parentRect.left + 'px';
+        underline.style.transform = 'translateY(' + (rect.height + 6) + 'px)';
+      }
+    };
+
+    const setProgress = () => {
+      if (!progressEl) return;
+      const scrolled = window.scrollY;
+      const height = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = height > 0 ? (scrolled / height) * 100 : 0;
+      progressEl.style.width = `${pct}%`;
+    };
 
     let ticking = false;
     const onScroll = () => {
       if (ticking) return;
       ticking = true;
       window.requestAnimationFrame(() => {
-        // Determine the section closest to top but >= 0 - 120px offset
+        // Determine active section
         const offset = 120;
         const tops = sectionOrder.map((k) => [k, getY(k) - offset]);
         const visible = tops
@@ -178,24 +222,47 @@ function App() {
           const [k] = visible[0];
           if (k && k !== active) setActive(k);
         } else {
-          // fallback to the first section if none crossed
           const ahead = tops.filter(([, y]) => y > 80).sort((a, b) => a[1] - b[1]);
           if (ahead.length) {
             const [k] = ahead[0];
             if (k && k !== active) setActive(k);
           }
         }
+
+        // Progress bar
+        setProgress();
+
+        // Parallax: subtle translate based on scroll
+        if (parallaxLayer) {
+          const y = window.scrollY * 0.06; // gentle
+          parallaxLayer.style.transform = `translate3d(0, ${y}px, 0)`;
+          parallaxLayer.style.background =
+            'radial-gradient(600px 180px at 20% 0%, rgba(59,130,246,0.12), transparent 60%), radial-gradient(600px 180px at 80% 0%, rgba(6,182,212,0.12), transparent 60%)';
+        }
+
+        // underline to active
+        setUnderlineToActive();
+
         ticking = false;
       });
     };
 
     window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
     onScroll(); // initialize
-    return () => window.removeEventListener('scroll', onScroll);
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (parallaxLayer && heroEl) heroEl.removeChild(parallaxLayer);
+      if (underline && nav) nav.removeChild(underline);
+    };
   }, [active, sections]);
 
   return (
     <div className="App" style={{ background: 'var(--bg-primary)' }}>
+      <a href="#main" className="skip-to-content">Skip to content</a>
+      <div className="scroll-progress" aria-hidden></div>
       <Header
         onNav={scrollTo}
         onToggleTheme={toggleTheme}
@@ -205,7 +272,7 @@ function App() {
         accent={accent}
       />
 
-      <main>
+      <main id="main">
         <Hero
           refProp={sections.hero}
           primary={primary}
@@ -357,7 +424,7 @@ function Header({ onNav, onToggleTheme, theme, active, primary, accent }) {
             ))}
             <li>
               <button
-                className="theme-toggle btn"
+                className="theme-toggle btn btn-outline"
                 onClick={onToggleTheme}
                 aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
                 style={{
@@ -404,6 +471,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
       <div className="container">
         <p
           className="reveal"
+          data-delay="0"
           style={{
             color: secondaryText,
             fontWeight: 600,
@@ -415,9 +483,9 @@ function Hero({ refProp, primary, accent, secondaryText }) {
         </p>
         <h1
           className="reveal"
+          data-delay="80"
           style={{
             margin: '0 0 10px',
-            fontSize: 42,
             lineHeight: 1.2,
             color: 'var(--text-primary)',
           }}
@@ -426,6 +494,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
         </h1>
         <p
           className="reveal"
+          data-delay="140"
           style={{
             color: secondaryText,
             maxWidth: 720,
@@ -438,7 +507,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
           experience.
         </p>
 
-        <div className="reveal" style={{ display: 'flex', gap: 12, marginTop: 24, flexWrap: 'wrap' }}>
+        <div className="reveal" data-delay="220" style={{ display: 'flex', gap: 12, marginTop: 24, flexWrap: 'wrap' }}>
           <a
             href="#projects"
             onClick={(e) => {
@@ -446,7 +515,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
               document.getElementById('projects')?.scrollIntoView({ behavior: 'smooth' });
             }}
             style={buttonStyle(primary)}
-            className="btn"
+            className="btn btn-gradient"
           >
             View Projects
           </a>
@@ -457,7 +526,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
               document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
             }}
             style={buttonOutlineStyle(accent)}
-            className="btn"
+            className="btn btn-outline"
           >
             Contact Me
           </a>
@@ -473,8 +542,8 @@ function About({ refProp, secondaryText }) {
   return (
     <section id="about" ref={refProp} style={sectionStyle()}>
       <div className="container">
-        <h2 className="reveal" style={sectionTitleStyle()}>About Me</h2>
-        <p className="reveal" style={{ color: secondaryText, lineHeight: 1.8 }}>
+        <h2 className="reveal" data-delay="0" style={sectionTitleStyle()}>About Me</h2>
+        <p className="reveal" data-delay="120" style={{ color: secondaryText, lineHeight: 1.8 }}>
           I am a passionate software engineer with experience across the stack —
           from crafting responsive interfaces to building scalable backend
           systems. I love clean architecture, resilient systems, and thoughtful
@@ -503,9 +572,10 @@ function Skills({ refProp, primary, accent, secondaryText }) {
   return (
     <section id="skills" ref={refProp} style={sectionStyle()}>
       <div className="container">
-        <h2 className="reveal" style={sectionTitleStyle()}>Skills</h2>
+        <h2 className="reveal" data-delay="0" style={sectionTitleStyle()}>Skills</h2>
         <ul
           className="reveal"
+          data-delay="120"
           style={{
             listStyle: 'none',
             display: 'grid',
@@ -515,17 +585,19 @@ function Skills({ refProp, primary, accent, secondaryText }) {
             margin: '20px 0 0',
           }}
         >
-          {skills.map((s) => (
+          {skills.map((s, idx) => (
             <li
               key={s}
-              className="card"
+              className="card icon-hover"
               style={{
                 border: '1px solid var(--border-color)',
                 borderRadius: 10,
                 padding: '10px 12px',
                 color: 'var(--text-primary)',
                 background: 'var(--bg-secondary)',
+                transition: 'transform .18s ease, box-shadow .2s ease',
               }}
+              data-delay={100 + idx * 40}
             >
               <span
                 style={{
@@ -542,7 +614,7 @@ function Skills({ refProp, primary, accent, secondaryText }) {
             </li>
           ))}
         </ul>
-        <p className="reveal" style={{ color: secondaryText, marginTop: 14, fontSize: 14 }}>
+        <p className="reveal" data-delay="200" style={{ color: secondaryText, marginTop: 14, fontSize: 14 }}>
           Always learning and adapting to new technologies and best practices.
         </p>
       </div>
@@ -556,12 +628,13 @@ function Projects({ refProp, data, primary, accent, secondaryText }) {
   return (
     <section id="projects" ref={refProp} style={sectionStyle()}>
       <div className="container">
-        <h2 className="reveal" style={sectionTitleStyle()}>Projects</h2>
-        <p className="reveal" style={{ color: secondaryText, marginTop: 0 }}>
+        <h2 className="reveal" data-delay="0" style={sectionTitleStyle()}>Projects</h2>
+        <p className="reveal" data-delay="120" style={{ color: secondaryText, marginTop: 0 }}>
           A selection of work that showcases problem solving and product thinking.
         </p>
         <div
           className="reveal"
+          data-delay="160"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
@@ -569,7 +642,7 @@ function Projects({ refProp, data, primary, accent, secondaryText }) {
             marginTop: 16,
           }}
         >
-          {data.map((p) => (
+          {data.map((p, idx) => (
             <article
               key={p.id}
               className="card"
@@ -579,6 +652,7 @@ function Projects({ refProp, data, primary, accent, secondaryText }) {
                 padding: 16,
                 background: 'var(--bg-secondary)',
               }}
+              data-delay={100 + idx * 60}
             >
               <h3 style={{ margin: '0 0 8px', color: 'var(--text-primary)' }}>
                 {p.title}
@@ -602,7 +676,7 @@ function Projects({ refProp, data, primary, accent, secondaryText }) {
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {p.demo && (
-                  <a href={p.demo} target="_blank" rel="noreferrer" style={buttonStyle(primary)} className="btn">
+                  <a href={p.demo} target="_blank" rel="noreferrer" style={buttonStyle(primary)} className="btn btn-gradient">
                     Live Demo
                   </a>
                 )}
@@ -612,7 +686,7 @@ function Projects({ refProp, data, primary, accent, secondaryText }) {
                     target="_blank"
                     rel="noreferrer"
                     style={buttonOutlineStyle(accent)}
-                    className="btn"
+                    className="btn btn-outline"
                   >
                     Source
                   </a>
@@ -632,12 +706,12 @@ function Resume({ refProp, primary, accent, secondaryText }) {
   return (
     <section id="resume" ref={refProp} style={sectionStyle()}>
       <div className="container">
-        <h2 className="reveal" style={sectionTitleStyle()}>Resume</h2>
-        <p className="reveal" style={{ color: secondaryText }}>
+        <h2 className="reveal" data-delay="0" style={sectionTitleStyle()}>Resume</h2>
+        <p className="reveal" data-delay="120" style={{ color: secondaryText }}>
           Download a copy of my resume for details on experience and education.
         </p>
-        <div className="reveal" style={{ marginTop: 14 }}>
-          <a href="/assets/resume.pdf" download style={buttonStyle(primary)} className="btn">
+        <div className="reveal" data-delay="160" style={{ marginTop: 14 }}>
+          <a href="/assets/resume.pdf" download style={buttonStyle(primary)} className="btn btn-gradient">
             Download Resume
           </a>
           <a
@@ -645,7 +719,7 @@ function Resume({ refProp, primary, accent, secondaryText }) {
             target="_blank"
             rel="noreferrer"
             style={{ ...buttonOutlineStyle(accent), marginLeft: 10 }}
-            className="btn"
+            className="btn btn-outline"
           >
             View in Browser
           </a>
@@ -680,8 +754,8 @@ function Contact({
   return (
     <section id="contact" ref={refProp} style={sectionStyle()}>
       <div className="container">
-        <h2 className="reveal" style={sectionTitleStyle()}>Contact</h2>
-        <p className="reveal" style={{ color: secondaryText }}>
+        <h2 className="reveal" data-delay="0" style={sectionTitleStyle()}>Contact</h2>
+        <p className="reveal" data-delay="120" style={{ color: secondaryText }}>
           {emailEnabled
             ? 'Send me a message and I will get back to you shortly.'
             : 'Email sending is not configured. Submit will simulate success.'}
@@ -689,6 +763,7 @@ function Contact({
         <form
           onSubmit={onSubmit}
           className="reveal"
+          data-delay="160"
           style={{
             marginTop: 16,
             display: 'grid',
@@ -740,7 +815,7 @@ function Contact({
             <button
               type="submit"
               disabled={state.status === 'sending'}
-              className="btn"
+              className="btn btn-gradient"
               style={{
                 ...buttonStyle(primary),
                 opacity: state.status === 'sending' ? 0.7 : 1,
@@ -796,7 +871,7 @@ function Footer({ primary, accent }) {
             target="_blank"
             rel="noreferrer"
             style={linkHover(primary)}
-            className="btn"
+            className="btn btn-outline"
           >
             GitHub
           </a>
@@ -805,14 +880,14 @@ function Footer({ primary, accent }) {
             target="_blank"
             rel="noreferrer"
             style={linkHover(accent)}
-            className="btn"
+            className="btn btn-outline"
           >
             LinkedIn
           </a>
           <a
             href="mailto:you@example.com"
             style={linkHover(primary)}
-            className="btn"
+            className="btn btn-outline"
           >
             Email
           </a>
@@ -867,6 +942,16 @@ function ensureMeta(key, attrs) {
   return el;
 }
 
+function ensureProgressBar() {
+  let el = document.querySelector('.scroll-progress');
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'scroll-progress';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
 /* ====== Styles helpers ====== */
 function buttonStyle(color) {
   return {
@@ -875,7 +960,7 @@ function buttonStyle(color) {
     background: color,
     color: '#fff',
     padding: '10px 14px',
-    borderRadius: 10,
+    borderRadius: 12,
     fontWeight: 700,
     border: `1px solid ${color}`,
   };
@@ -888,7 +973,7 @@ function buttonOutlineStyle(color) {
     background: 'transparent',
     color: color,
     padding: '10px 14px',
-    borderRadius: 10,
+    borderRadius: 12,
     fontWeight: 700,
     border: `1px solid ${color}`,
   };
@@ -896,14 +981,13 @@ function buttonOutlineStyle(color) {
 
 function sectionStyle() {
   return {
-    padding: '60px 20px',
+    padding: '68px 20px',
     background: 'var(--bg-primary)',
   };
 }
 function sectionTitleStyle() {
   return {
-    margin: '0 0 12px',
-    fontSize: 28,
+    margin: '0 0 10px',
     color: 'var(--text-primary)',
   };
 }
@@ -915,7 +999,7 @@ function linkHover(color) {
     color: 'var(--text-primary)',
     textDecoration: 'none',
     padding: '6px 6px',
-    borderRadius: 6,
+    borderRadius: 8,
     border: `1px solid transparent`,
     transition: 'all .15s ease',
     outline: 'none',
