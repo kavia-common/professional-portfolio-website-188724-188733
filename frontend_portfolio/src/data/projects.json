@@ -1,0 +1,26 @@
+[
+  {
+    "id": "proj-1",
+    "title": "Developer Portal",
+    "description": "A self-service developer portal with documentation, service scaffolding, and golden paths.",
+    "tech": ["React", "Node.js", "PostgreSQL", "Docker"],
+    "demo": "https://example.com/demo-portal",
+    "repo": "https://github.com/your-handle/dev-portal"
+  },
+  {
+    "id": "proj-2",
+    "title": "Realtime Collaboration",
+    "description": "Collaborative whiteboard with CRDT-based sync and offline support.",
+    "tech": ["TypeScript", "WebSockets", "CRDT", "Service Workers"],
+    "demo": "https://example.com/realtime",
+    "repo": "https://github.com/your-handle/realtime-board"
+  },
+  {
+    "id": "proj-3",
+    "title": "Analytics Pipeline",
+    "description": "Data ingestion and transformation pipeline with dashboard visualizations.",
+    "tech": ["Python", "Airflow", "ClickHouse", "React"],
+    "demo": "https://example.com/analytics",
+    "repo": "https://github.com/your-handle/analytics-pipeline"
+  }
+]

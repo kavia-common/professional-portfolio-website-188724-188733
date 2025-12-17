@@ -1,82 +1,47 @@
-# Lightweight React Template for KAVIA
+# Personal Portfolio (React SPA)
 
-This project provides a minimal React template with a clean, modern UI and minimal dependencies.
+A lightweight single‑page portfolio with sections for Hero, About, Skills, Projects, Resume, and Contact. Uses minimal dependencies, smooth-scroll navigation, and a theme tuned to #3b82f6 and #06b6d4.
 
 ## Features
-
-- **Lightweight**: No heavy UI frameworks - uses only vanilla CSS and React
-- **Modern UI**: Clean, responsive design with KAVIA brand styling
-- **Fast**: Minimal dependencies for quick loading times
-- **Simple**: Easy to understand and modify
+- Single page with in‑page smooth scrolling (no router)
+- Responsive, modern design with semantic HTML
+- Projects driven from JSON (`src/data/projects.json`)
+- Resume download/view from `public/assets/resume.pdf`
+- Contact form with optional EmailJS integration via env vars
+- Basic SEO: `public/index.html` meta, `public/robots.txt`, `public/sitemap.xml`
+- Dark/light theme toggle
 
 ## Getting Started
 
-In the project directory, you can run:
-
-### `npm start`
-
-Runs the app in development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
-
-### `npm test`
-
-Launches the test runner in interactive watch mode.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-## Customization
-
-### Colors
-
-The main brand colors are defined as CSS variables in `src/App.css`:
-
-```css
-:root {
-  --kavia-orange: #E87A41;
-  --kavia-dark: #1A1A1A;
-  --text-color: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --border-color: rgba(255, 255, 255, 0.1);
-}
+Install and run:
+```bash
+npm install
+npm start
 ```
 
-### Components
+Build:
+```bash
+npm run build
+```
 
-This template uses pure HTML/CSS components instead of a UI framework. You can find component styles in `src/App.css`. 
+## Configure Email (Optional)
+Create `.env` from `.env.example` and set:
+- `REACT_APP_EMAILJS_PUBLIC_KEY`
+- `REACT_APP_EMAILJS_SERVICE_ID`
+- `REACT_APP_EMAILJS_TEMPLATE_ID`
 
-Common components include:
-- Buttons (`.btn`, `.btn-large`)
-- Container (`.container`)
-- Navigation (`.navbar`)
-- Typography (`.title`, `.subtitle`, `.description`)
+If these are not set, the Contact form will simulate success without sending.
 
-## Learn More
+## Content
+- Update your name, bio, and social links in `src/App.js` (Header, Hero, Footer).
+- Update projects in `src/data/projects.json`.
+- Place your resume file at `public/assets/resume.pdf`.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## SEO
+- Update `<title>` and `<meta>` in `public/index.html`.
+- Adjust `public/sitemap.xml` with your domain.
+- `public/robots.txt` is included and references the sitemap.
 
-### Code Splitting
+## Environment
+A `.env.example` is provided including the container vars and optional EmailJS vars.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
