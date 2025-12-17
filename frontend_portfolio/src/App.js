@@ -166,18 +166,18 @@ function App() {
   useEffect(() => {
     const prefersReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // 3D tilting based on pointer position
+    // 3D tilting based on pointer position (reduced tilt range)
     const tiltables = Array.from(document.querySelectorAll('.tiltable'));
     const onMove = (e) => {
       const el = e.currentTarget;
       const rect = el.getBoundingClientRect();
       const x = (e.clientX - rect.left) / rect.width;
       const y = (e.clientY - rect.top) / rect.height;
-      const rx = (0.5 - y) * 6; // tilt X
-      const ry = (x - 0.5) * 8; // tilt Y
+      const rx = (0.5 - y) * 5; // max ~5deg (was 6)
+      const ry = (x - 0.5) * 5; // max ~5deg (was 8)
       el.style.transform = prefersReduce
         ? ''
-        : `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) translateZ(2px)`;
+        : `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) translateZ(1px)`;
     };
     const onLeave = (e) => {
       const el = e.currentTarget;
@@ -189,7 +189,7 @@ function App() {
       el.addEventListener('blur', onLeave, { passive: true });
     });
 
-    // Ripple on click for elements with .ripple
+    // Ripple on click for elements with .ripple (shorter life, smaller scale)
     const ripples = Array.from(document.querySelectorAll('.ripple'));
     const onClickRipple = (e) => {
       const el = e.currentTarget;
@@ -197,15 +197,16 @@ function App() {
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       const maxDim = Math.max(rect.width, rect.height);
+      const base = (maxDim / 10) * 1.4; // reduced ~22%
       el.style.setProperty('--ripple-x', `${x}px`);
       el.style.setProperty('--ripple-y', `${y}px`);
-      el.style.setProperty('--ripple-scale', `${(maxDim / 10) * 1.8}`);
+      el.style.setProperty('--ripple-scale', `${base}`);
       el.classList.remove('is-rippling');
       // force reflow to restart animation
       // eslint-disable-next-line no-unused-expressions
       void el.offsetWidth;
       el.classList.add('is-rippling');
-      window.setTimeout(() => el.classList.remove('is-rippling'), 650);
+      window.setTimeout(() => el.classList.remove('is-rippling'), 520); // ~20% shorter
     };
     ripples.forEach((el) => el.addEventListener('click', onClickRipple));
 
@@ -313,9 +314,10 @@ function App() {
         // Progress bar
         setProgress();
 
-        // Parallax: subtle translate based on scroll
+        // Parallax: subtle translate based on scroll, reduced by ~40% and clamped on small screens
         if (parallaxLayer) {
-          const y = window.scrollY * 0.06; // gentle
+          const multiplier = window.innerWidth < 768 ? 0.03 : 0.036; // previously 0.06
+          const y = Math.min(60, window.scrollY * multiplier);
           parallaxLayer.style.transform = `translate3d(0, ${y}px, 0)`;
           parallaxLayer.style.background =
             'radial-gradient(600px 180px at 20% 0%, rgba(59,130,246,0.12), transparent 60%), radial-gradient(600px 180px at 80% 0%, rgba(6,182,212,0.12), transparent 60%)';
@@ -566,7 +568,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
         </p>
         <h1
           className="reveal"
-          data-delay="80"
+          data-delay="60"
           style={{
             margin: '0 0 10px',
             lineHeight: 1.2,
@@ -577,7 +579,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
         </h1>
         <p
           className="reveal"
-          data-delay="140"
+          data-delay="120"
           style={{
             color: secondaryText,
             maxWidth: 720,
@@ -590,7 +592,7 @@ function Hero({ refProp, primary, accent, secondaryText }) {
           experience.
         </p>
 
-        <div className="reveal" data-delay="220" style={{ display: 'flex', gap: 12, marginTop: 24, flexWrap: 'wrap' }}>
+        <div className="reveal" data-delay="180" style={{ display: 'flex', gap: 12, marginTop: 24, flexWrap: 'wrap' }}>
           <a
             href="#projects"
             onClick={(e) => {
@@ -1088,7 +1090,7 @@ function linkHover(color) {
     padding: '6px 6px',
     borderRadius: 8,
     border: `1px solid transparent`,
-    transition: 'all .15s ease',
+    transition: 'all 200ms var(--ease-standard)',
     outline: 'none',
     boxShadow: 'none',
   };

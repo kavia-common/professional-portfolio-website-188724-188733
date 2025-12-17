@@ -12,14 +12,39 @@
   --shadow-soft: 0 4px 16px rgba(0,0,0,0.06);
   --shadow-hover: 0 10px 28px rgba(0,0,0,0.12);
 
-  /* Motion System */
-  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-fast: 120ms;
-  --dur-med: 240ms;
-  --dur-slow: 600ms;
+  /* Motion System (subtler by default) */
+  --ease-standard: cubic-bezier(0.22, 0.61, 0.36, 1); /* slightly tighter ease */
+  --ease-spring: cubic-bezier(0.18, 0.9, 0.24, 1); /* less overshoot than before */
+  --dur-fast: 110ms; /* ~-10ms */
+  --dur-med: 200ms;  /* -~17% */
+  --dur-slow: 480ms; /* -20% */
+  --delay-xs: 40ms;
+  --delay-sm: 60ms;
+  --delay-md: 90ms;
+  --delay-lg: 140ms;
+
+  /* Multipliers for motion intensity */
+  --motion-translate-mult: 1; /* default */
+  --motion-scale-mult: 1;
+  --motion-tilt-mult: 1;
+
   --perspective: 900px;
   --ring-glow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 35%, transparent);
+}
+
+/* Expressive mode: slightly stronger & longer motions */
+body.motion-expressive {
+  --dur-fast: 140ms;
+  --dur-med: 240ms;
+  --dur-slow: 560ms;
+  --delay-xs: 50ms;
+  --delay-sm: 80ms;
+  --delay-md: 110ms;
+  --delay-lg: 160ms;
+
+  --motion-translate-mult: 1.2;
+  --motion-scale-mult: 1.2;
+  --motion-tilt-mult: 1.2;
 }
 
 [data-theme="dark"] {
@@ -73,30 +98,30 @@ a {
   opacity: 0;
   will-change: opacity, transform;
 }
-.reveal { transform: translateY(14px); }
-.reveal-left { transform: translateX(-16px); }
-.reveal-right { transform: translateX(16px); }
+.reveal { transform: translateY(calc(10px * var(--motion-translate-mult))); }
+.reveal-left { transform: translateX(calc(-10px * var(--motion-translate-mult))); }
+.reveal-right { transform: translateX(calc(10px * var(--motion-translate-mult))); }
 
 .reveal.revealed,
 .reveal-left.revealed,
 .reveal-right.revealed {
   opacity: 1;
   transform: translate3d(0,0,0);
-  transition: opacity var(--dur-slow) var(--ease-spring), transform var(--dur-slow) var(--ease-spring);
+  transition: opacity 350ms var(--ease-spring), transform 350ms var(--ease-spring);
 }
 
 /* Utility Animations */
 @keyframes k-float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  50% { transform: translateY(-4px); }
 }
-.float-subtle { animation: k-float 6s ease-in-out infinite; will-change: transform; }
+.float-subtle { animation: k-float 6.5s ease-in-out infinite; will-change: transform; }
 
 @keyframes k-pulse-subtle {
   0%, 100% { box-shadow: var(--shadow-soft); }
   50% { box-shadow: var(--shadow-hover); }
 }
-.pulse-subtle { animation: k-pulse-subtle 3.5s ease-in-out infinite; }
+.pulse-subtle { animation: k-pulse-subtle 3.2s ease-in-out infinite; }
 
 @keyframes k-shimmer {
   0% { transform: translateX(-100%); }
@@ -111,12 +136,12 @@ a {
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%);
-  animation: k-shimmer 1.2s linear infinite;
+  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%);
+  animation: k-shimmer 1s linear infinite;
   pointer-events: none;
 }
 [data-theme="dark"] .shimmer::after {
-  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%);
+  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.10) 50%, transparent 100%);
 }
 
 @keyframes k-sparkle {
@@ -149,7 +174,7 @@ a {
 .tiltable {
   transform-style: preserve-3d;
   transform: perspective(var(--perspective)) rotateX(0deg) rotateY(0deg) translateZ(0);
-  transition: transform var(--dur-med) var(--ease-spring), box-shadow var(--dur-med) var(--ease-standard), border-color var(--dur-med) var(--ease-standard);
+  transition: transform 200ms var(--ease-standard), box-shadow 200ms var(--ease-standard), border-color 200ms var(--ease-standard);
   will-change: transform, box-shadow;
 }
 .tiltable:hover {
@@ -184,16 +209,17 @@ a {
   width: 10px; height: 10px;
   transform: translate(-50%, -50%) scale(0);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent-2) 30%, transparent);
-  opacity: .45;
+  background: color-mix(in srgb, var(--accent-2) 24%, transparent);
+  opacity: .35;
+  filter: blur(0.5px);
   pointer-events: none;
 }
 .ripple.is-rippling::after {
-  animation: ripple-grow var(--dur-slow) var(--ease-standard);
+  animation: ripple-grow 480ms var(--ease-standard);
 }
 @keyframes ripple-grow {
   to {
-    transform: translate(-50%, -50%) scale(var(--ripple-scale, 25));
+    transform: translate(-50%, -50%) scale(var(--ripple-scale, 18));
     opacity: 0;
   }
 }
@@ -210,9 +236,10 @@ a {
   position: relative;
   isolation: isolate;
   transform: translateZ(0);
+  transition: transform 200ms var(--ease-standard), box-shadow 200ms var(--ease-standard), background-color 200ms var(--ease-standard), border-color 200ms var(--ease-standard), color 200ms var(--ease-standard);
 }
 .btn:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px) scale(calc(1 + 0.02 * var(--motion-scale-mult)));
   box-shadow: var(--shadow-hover);
 }
 .btn:active {
@@ -317,7 +344,7 @@ a {
   height: 2px;
   background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
   border-radius: 2px;
-  transition: transform var(--dur-med) var(--ease-spring), width var(--dur-med) var(--ease-spring), left var(--dur-med) var(--ease-spring);
+  transition: transform 220ms var(--ease-spring), width 220ms var(--ease-spring), left 220ms var(--ease-spring);
   will-change: transform, width, left;
 }
 
@@ -355,9 +382,9 @@ a {
 
 /* Skeleton placeholder for images/cards */
 .skeleton {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--bg-secondary) 95%, #fff), color-mix(in srgb, var(--bg-secondary) 80%, #fff), color-mix(in srgb, var(--bg-secondary) 95%, #fff));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--bg-secondary) 96%, #fff), color-mix(in srgb, var(--bg-secondary) 86%, #fff), color-mix(in srgb, var(--bg-secondary) 96%, #fff));
   background-size: 200% 100%;
-  animation: skeleton-shift 1.2s ease-in-out infinite;
+  animation: skeleton-shift 1.05s ease-in-out infinite;
   border-radius: 12px;
 }
 @keyframes skeleton-shift {
