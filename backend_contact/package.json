@@ -1,0 +1,42 @@
+{
+  "name": "backend_contact",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Contact form backend (Express) with validation, rate limiting, spam protection and SMTP email sending.",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon --legacy-watch src/server.js",
+    "lint": "eslint .",
+    "health": "node -e \"fetch('http://localhost:' + (process.env.PORT||process.env.REACT_APP_PORT||4001) + (process.env.HEALTHCHECK_PATH||process.env.REACT_APP_HEALTHCHECK_PATH||'/health')).then(r=>r.text()).then(t=>console.log(t)).catch(e=>{console.error(e); process.exit(1);})\""
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "joi": "^17.13.3",
+    "morgan": "^1.10.0",
+    "nodemailer": "^6.9.14",
+    "rate-limiter-flexible": "^5.0.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "nodemon": "^3.1.7"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "express",
+    "contact",
+    "smtp",
+    "nodemailer",
+    "rate limiting",
+    "validation"
+  ],
+  "author": "",
+  "license": "MIT"
+}
