@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 import './index.css';
 import projects from './data/projects.json';
+import { sendContactMessage } from './services/contactApi';
 
 // PUBLIC_INTERFACE
 function App() {
@@ -43,7 +44,7 @@ function App() {
     }
   };
 
-  // EmailJS env gating (no dependency added; we will POST to EmailJS REST only if configured)
+  // EmailJS env gating is kept for backwards-compatibility, but Django API will be preferred if configured
   const emailConfig = useMemo(
     () => ({
       enabled:
@@ -60,6 +61,7 @@ function App() {
   const [contactState, setContactState] = useState({
     name: '',
     email: '',
+    subject: '',
     message: '',
     status: 'idle', // idle | sending | success | error
     error: '',
@@ -71,62 +73,101 @@ function App() {
     setContactState((s) => ({ ...s, [name]: value }));
   };
 
+  function basicValidate({ name, email, message }) {
+    if (!name || !email || !message) return 'Please fill in all required fields.';
+    // very basic email format check
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return 'Please enter a valid email address.';
+    return '';
+  }
+
   // PUBLIC_INTERFACE
   async function handleContactSubmit(e) {
     e.preventDefault();
-    setContactState((s) => ({ ...s, status: 'sending', error: '' }));
 
-    // If EmailJS config not present, simulate success
-    if (!emailConfig.enabled) {
-      setTimeout(() => {
-        setContactState((s) => ({
-          ...s,
-          status: 'success',
-        }));
-      }, 800);
+    const validationMsg = basicValidate(contactState);
+    if (validationMsg) {
+      setContactState((s) => ({ ...s, status: 'error', error: validationMsg }));
       return;
     }
 
-    // EmailJS REST call
-    try {
-      const payload = {
-        service_id: emailConfig.serviceId,
-        template_id: emailConfig.templateId,
-        user_id: emailConfig.publicKey,
-        template_params: {
-          from_name: contactState.name,
-          from_email: contactState.email,
-          message: contactState.message,
-        },
-      };
+    setContactState((s) => ({ ...s, status: 'sending', error: '' }));
 
-      const resp = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(text || 'Failed to send message');
+    // Prefer the Django API if REACT_APP_CONTACT_API_URL is set
+    if (process.env.REACT_APP_CONTACT_API_URL) {
+      const { name, email, subject, message } = contactState;
+      const result = await sendContactMessage({ name, email, subject, message });
+      if (result.ok) {
+        setContactState({
+          name: '',
+          email: '',
+          subject: '',
+          message: '',
+          status: 'success',
+          error: '',
+        });
+      } else {
+        setContactState((s) => ({
+          ...s,
+          status: 'error',
+          error: result.error || 'Failed to send message',
+        }));
       }
+      return;
+    }
 
-      setContactState({
-        name: '',
-        email: '',
-        message: '',
-        status: 'success',
-        error: '',
-      });
-    } catch (err) {
+    // Fall back to EmailJS if configured, otherwise simulate success
+    if (emailConfig.enabled) {
+      try {
+        const payload = {
+          service_id: emailConfig.serviceId,
+          template_id: emailConfig.templateId,
+          user_id: emailConfig.publicKey,
+          template_params: {
+            from_name: contactState.name,
+            from_email: contactState.email,
+            subject: contactState.subject || '',
+            message: contactState.message,
+          },
+        };
+
+        const resp = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!resp.ok) {
+          const text = await resp.text();
+          throw new Error(text || 'Failed to send message');
+        }
+
+        setContactState({
+          name: '',
+          email: '',
+          subject: '',
+          message: '',
+          status: 'success',
+          error: '',
+        });
+      } catch (err) {
+        setContactState((s) => ({
+          ...s,
+          status: 'error',
+          error: err?.message || 'Unknown error',
+        }));
+      }
+      return;
+    }
+
+    // Simulate success if neither Django API nor EmailJS configured
+    setTimeout(() => {
       setContactState((s) => ({
         ...s,
-        status: 'error',
-        error: err?.message || 'Unknown error',
+        status: 'success',
       }));
-    }
+    }, 800);
   }
 
   const primary = '#3b82f6'; // blue-500
@@ -826,7 +867,7 @@ function Contact({
   accent,
   secondaryText,
 }) {
-  /** Contact form with optional EmailJS integration (env-gated) */
+  /** Contact form using Django contact-service when configured, or EmailJS/simulated fallback */
   const fieldStyle = {
     width: '100%',
     boxSizing: 'border-box',
@@ -837,14 +878,18 @@ function Contact({
     background: 'var(--bg-secondary)',
   };
 
+  const usingDjango = !!process.env.REACT_APP_CONTACT_API_URL;
+
   return (
     <section id="contact" ref={refProp} style={sectionStyle()}>
       <div className="container">
         <h2 className="reveal" data-delay="0" style={sectionTitleStyle()}>Contact</h2>
         <p className="reveal" data-delay="120" style={{ color: secondaryText }}>
-          {emailEnabled
-            ? 'Send me a message and I will get back to you shortly.'
-            : 'Email sending is not configured. Submit will simulate success.'}
+          {usingDjango
+            ? 'This form sends your message securely to my server.'
+            : emailEnabled
+              ? 'EmailJS is configured. Your message will be sent via EmailJS.'
+              : 'Server email not configured. Submit will simulate success in development.'}
         </p>
         <form
           onSubmit={onSubmit}
@@ -857,6 +902,7 @@ function Contact({
             gap: 12,
             maxWidth: 600,
           }}
+          noValidate
         >
           <label style={{ fontSize: 14 }}>
             Name
@@ -869,6 +915,7 @@ function Contact({
               placeholder="Your name"
               style={{ ...fieldStyle, marginTop: 6 }}
               className="glow-border"
+              autoComplete="name"
             />
           </label>
 
@@ -883,6 +930,22 @@ function Contact({
               placeholder="you@example.com"
               style={{ ...fieldStyle, marginTop: 6 }}
               className="glow-border"
+              autoComplete="email"
+              inputMode="email"
+            />
+          </label>
+
+          <label style={{ fontSize: 14 }}>
+            Subject (optional)
+            <input
+              type="text"
+              name="subject"
+              value={state.subject}
+              onChange={onChange}
+              placeholder="Subject"
+              style={{ ...fieldStyle, marginTop: 6 }}
+              className="glow-border"
+              autoComplete="off"
             />
           </label>
 
@@ -910,15 +973,16 @@ function Contact({
                 opacity: state.status === 'sending' ? 0.7 : 1,
                 cursor: state.status === 'sending' ? 'not-allowed' : 'pointer',
               }}
+              aria-busy={state.status === 'sending' ? 'true' : 'false'}
             >
               {state.status === 'sending' ? 'Sending...' : 'Send Message'}
             </button>
             {state.status === 'success' && (
-              <span style={{ color: accent, fontWeight: 600 }}>Message sent!</span>
+              <span role="status" style={{ color: accent, fontWeight: 600 }}>Message sent!</span>
             )}
             {state.status === 'error' && (
-              <span style={{ color: '#EF4444', fontWeight: 600 }}>
-                Failed to send: {state.error}
+              <span role="alert" style={{ color: '#EF4444', fontWeight: 600 }}>
+                {state.error}
               </span>
             )}
           </div>
